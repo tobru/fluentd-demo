@@ -1,0 +1,62 @@
+version: '2'
+
+services:
+  nginx:
+    build: nginx/
+    ports:
+      - "8080:80"
+    volumes:
+      - nginx_logs:/var/log/nginx
+    networks:
+      - docker_elk
+  elasticsearch:
+    build: elasticsearch/
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+    networks:
+      - docker_elk
+  minio:
+    image: minio/minio:latest
+    command: server /export
+    volumes:
+      - minio:/export
+    ports:
+      - "9000:9000"
+    environment:
+      - "MINIO_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE"
+      - "MINIO_SECRET_KEY=wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY"
+    networks:
+      - docker_elk
+  fluentd:
+    build: fluentd/
+    volumes:
+      - nginx_logs:/var/log/nginx
+    networks:
+      - docker_elk
+    links:
+      - minio:fluentd.minio
+    depends_on:
+      - elasticsearch
+      - minio
+  kibana:
+    image: kibana:5
+    volumes:
+      - ./kibana/config/:/etc/kibana/
+    ports:
+      - "5601:5601"
+    networks:
+      - docker_elk
+    depends_on:
+      - elasticsearch
+
+networks:
+  docker_elk:
+    driver: bridge
+
+volumes:
+  minio:
+  elasticsearch:
+  nginx_logs:
